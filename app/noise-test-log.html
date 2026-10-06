@@ -1,0 +1,629 @@
+<title>Noise Test Log</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@500;600&display=swap">
+<style>
+/* Layout: lab-notebook console. Sticky header + measurement rail; panel = plan column beside a logging column; one column on phones, form first. */
+:root{
+  --bg:#f5f4f2; --surface:#ffffff; --surface-2:#efedea; --fg:#1d1b1f; --muted:#5f5a63; --line:#d9d5d0;
+  --accent:#7b2141; --accent-fg:#ffffff; --accent-soft:#f3e4ea;
+  --ok:#2f6b3a; --ok-soft:#e3efe3; --warn:#8a5a00; --warn-soft:#f7ecd2; --bad:#a3271f; --bad-soft:#f6dedb;
+  --display:"IBM Plex Serif",Georgia,serif; --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --r:8px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#17151a; --surface:#211e24; --surface-2:#2a262e; --fg:#ece8ee; --muted:#a8a1ad; --line:#3a353f;
+  --accent:#e08aa6; --accent-fg:#1d1b1f; --accent-soft:#3b2530;
+  --ok:#8fcf98; --ok-soft:#1f3323; --warn:#e8bf63; --warn-soft:#3a3018; --bad:#f19b92; --bad-soft:#3d2220; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#17151a; --surface:#211e24; --surface-2:#2a262e; --fg:#ece8ee; --muted:#a8a1ad; --line:#3a353f;
+  --accent:#e08aa6; --accent-fg:#1d1b1f; --accent-soft:#3b2530;
+  --ok:#8fcf98; --ok-soft:#1f3323; --warn:#e8bf63; --warn-soft:#3a3018; --bad:#f19b92; --bad-soft:#3d2220; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:16px;padding-block:0 48px}
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.topbar{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;padding-block:12px 8px}
+h1{font-family:var(--display);font-weight:600;font-size:1.35rem;margin:0;letter-spacing:.01em}
+h1 small{display:block;font-family:var(--body);font-weight:400;font-size:.8rem;color:var(--muted);letter-spacing:0}
+.status{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:.78rem;padding:3px 9px;border-radius:999px;background:var(--surface-2);color:var(--muted);white-space:nowrap}
+.pill.ok{background:var(--ok-soft);color:var(--ok)} .pill.warn{background:var(--warn-soft);color:var(--warn)} .pill.bad{background:var(--bad-soft);color:var(--bad)}
+.dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+.tabs{display:flex;gap:4px;padding-bottom:8px;overflow-x:auto}
+.tabs button,.rail button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:var(--r);padding:6px 12px;white-space:nowrap}
+.tabs button[aria-selected="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.rail{display:flex;gap:6px;overflow-x:auto;padding-block:4px 10px}
+.rail button{display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:6px 10px;min-width:92px}
+.rail button .id{font-family:var(--mono);font-weight:500;font-size:.85rem}
+.rail button .nm{font-size:.72rem;color:var(--muted)}
+.rail button[aria-selected="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.rail button .st{font-size:.68rem;margin-top:2px}
+.st.done{color:var(--ok)} .st.prog{color:var(--warn)} .st.none{color:var(--muted)}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.quick{display:flex;gap:6px;flex-wrap:wrap;padding-block:10px}
+.quick .lbl{font-size:.75rem;color:var(--muted);align-self:center;margin-right:2px;text-transform:uppercase;letter-spacing:.06em}
+.btn{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:var(--r);padding:7px 12px;font-size:.88rem}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent);font-weight:600}
+.btn.small{padding:4px 9px;font-size:.8rem}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.panel{display:grid;gap:16px;grid-template-columns:minmax(0,1fr);grid-template-areas:"head" "form" "plan" "entries"}
+@media (min-width:900px){.panel{grid-template-columns:minmax(0,5fr) minmax(0,6fr);grid-template-areas:"head form" "plan form" "plan entries" ". entries";align-items:start}}
+.a-head{grid-area:head}.a-form{grid-area:form}.a-plan{grid-area:plan}.a-entries{grid-area:entries}
+section.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;min-width:0}
+h2{font-family:var(--display);font-weight:600;font-size:1.15rem;margin:0 0 4px;text-wrap:balance}
+h3{font-size:.75rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:16px 0 8px;font-weight:600}
+h3:first-child{margin-top:0}
+.meta{color:var(--muted);font-size:.85rem;margin:0}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:.88rem;margin:10px 0 0}
+.kv dt{color:var(--muted)} .kv dd{margin:0}
+.targets{display:grid;gap:6px}
+.target{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;font-size:.88rem;padding:6px 8px;border-radius:6px;background:var(--surface-2)}
+.target .bar{grid-column:1/-1;height:4px;background:var(--line);border-radius:2px;overflow:hidden}
+.target .bar i{display:block;height:100%;background:var(--accent)}
+.target .bar i.full{background:var(--ok)}
+.target .n{font-family:var(--mono);font-size:.82rem;font-variant-numeric:tabular-nums;white-space:nowrap}
+ul.checks{list-style:none;padding:0;margin:0;display:grid;gap:6px}
+ul.checks label{display:flex;gap:8px;align-items:flex-start;font-size:.9rem;cursor:pointer}
+ul.checks input{margin-top:3px;accent-color:var(--accent);width:16px;height:16px;flex:none}
+.doneblock{border-top:1px solid var(--line);margin-top:14px;padding-top:12px}
+form.grid{display:grid;gap:10px 12px;grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (min-width:560px){form.grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.f{display:flex;flex-direction:column;gap:3px;min-width:0}
+.f.wide{grid-column:1/-1}
+.f label{font-size:.75rem;color:var(--muted);font-weight:500}
+.f label .u{font-family:var(--mono);font-weight:400}
+input,select,textarea{font:inherit;font-size:16px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 9px;width:100%;min-width:0}
+input[type=checkbox]{width:auto}
+input.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+textarea{min-height:56px;resize:vertical}
+.inline{display:flex;align-items:center;gap:8px;font-size:.88rem}
+.flags{grid-column:1/-1;display:flex;gap:6px;flex-wrap:wrap;min-height:4px}
+.formfoot{grid-column:1/-1;display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:space-between}
+.toast{font-size:.85rem;color:var(--ok)}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:6px}
+table{border-collapse:collapse;width:100%;font-size:.8rem}
+th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;vertical-align:top}
+th{background:var(--surface-2);font-weight:600;color:var(--muted);position:sticky;top:0}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right}
+td.note{white-space:normal;min-width:160px;max-width:320px}
+tr:last-child td{border-bottom:none}
+.empty{color:var(--muted);font-size:.88rem;padding:12px;text-align:center}
+.cfg{display:grid;gap:10px 12px;grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (min-width:700px){.cfg{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.cfgflags{display:grid;gap:6px;grid-column:1/-1}
+.banner{margin-top:12px;padding:10px 12px;border-radius:var(--r);font-size:.88rem;background:var(--warn-soft);color:var(--warn)}
+.ophirbox{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-top:8px}
+.ophirbox .f{width:140px}
+.hint{font-size:.8rem;color:var(--muted);margin:6px 0 0}
+.rowbtns{display:flex;gap:6px;flex-wrap:wrap}
+.dialog{grid-column:1/-1;display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;background:var(--surface-2);border-radius:6px;padding:10px}
+.dialog .f{flex:1 1 220px}
+.copyarea{width:100%;min-height:140px;font-family:var(--mono);font-size:12px}
+@media (prefers-reduced-motion:no-preference){.btn,.rail button{transition:border-color .12s, background .12s}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="topbar">
+      <h1>Noise Test Log <small>HC-ARF Raman instrument, pre-campaign measurements, 6 to 8 October 2026</small></h1>
+      <div class="status">
+        <span class="pill" id="connPill"><span class="dot"></span><span id="connText">Connecting</span></span>
+        <span class="pill warn" id="pendPill" hidden><span id="pendText"></span></span>
+        <span class="pill" id="whoPill" hidden></span>
+      </div>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Views">
+      <button role="tab" id="tab-meas" aria-selected="true">Measurements</button>
+      <button role="tab" id="tab-decision" aria-selected="false">Decision</button>
+      <button role="tab" id="tab-log" aria-selected="false">Full log &amp; export</button>
+    </nav>
+    <div class="rail" id="rail" role="tablist" aria-label="Measurements"></div>
+  </header>
+
+  <div class="quick" id="quick" aria-label="Quick events">
+    <span class="lbl">Quick log</span>
+    <button class="btn small" data-ev="laser_on">Laser on</button>
+    <button class="btn small" data-ev="laser_off">Laser off</button>
+    <button class="btn small" data-ev="shutter_open">Shutter open</button>
+    <button class="btn small" data-ev="shutter_closed">Shutter closed</button>
+    <button class="btn small" data-ev="coupling">Coupling adjusted</button>
+    <button class="btn small" data-ev="waveplate">Half-wave plate changed</button>
+    <button class="btn small" data-ev="ophir">Ophir reading</button>
+    <button class="btn small" data-ev="note">Note</button>
+    <button class="btn small" data-ev="feedback">App feedback</button>
+  </div>
+  <div id="evDialog" hidden></div>
+
+  <main id="view"></main>
+  <div id="offlineBanner" class="banner" hidden>Not connected to shared storage. Entries are kept on this device and upload automatically the next time the page connects.</div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ---------- Plan content (from INTEGRATION_TIME_PLAN.md) ---------- */
+const MEAS = [
+ {id:"M0", name:"Configuration", when:"Tue 6 Oct, before anything else",
+  purpose:"Lock and record the instrument configuration so every later frame belongs to one known setup.",
+  cond:"Ambient air or any gas for the test spectrum.",
+  steps:["In ENLIGHTEN turn OFF: dark subtraction, baseline correction, deconvolution or any processing, Raman intensity correction. Scan averaging = 1, boxcar = 1. (The 4 Oct N₂ test had dark subtraction and ALS baseline ON and scan averaging 3.)",
+         "Record vertical binning rows, TEC setpoint, gain, offset, horizontal ROI (form below).",
+         "Record component ratings at full laser output (form below).",
+         "Time one N₂ purge, one fill, one pressurization to 60 psi.",
+         "Optimize fiber coupling once. Choose the reference half-wave plate angle. Record the Ophir reading there."],
+  done:"A test spectrum's CSV header shows every processing flag off, and the configuration record on this page is complete.",
+  targets:[{key:"test",label:"Test spectrum, check header flags",count:1,gas:"Ambient air",t:"",laser:"On"}]},
+ {id:"M1", name:"Bias & dark", when:"Tue night to Wed morning, unattended",
+  purpose:"Electronic offset, read noise, dark rate at operating temperature, dark non-uniformity, hot pixels.",
+  cond:"Laser OFF. Any gas. Detector settled at setpoint. Nothing in the beam.",
+  steps:["Let the detector temperature settle at the setpoint.","20 bias frames at the shortest integration time.","Dark frames in pairs at 10, 30, 100, 300, 1000 s; one at 3000 s."],
+  done:"All frames saved, and every frame's detector temperature is within 0.5 °C of the setpoint.",
+  targets:[{key:"bias",label:"Bias, shortest t",count:20,gas:"None",t:"",laser:"Off"},
+   {key:"d10",label:"Dark 10 s",count:2,gas:"None",t:10,laser:"Off"},{key:"d30",label:"Dark 30 s",count:2,gas:"None",t:30,laser:"Off"},
+   {key:"d100",label:"Dark 100 s",count:2,gas:"None",t:100,laser:"Off"},{key:"d300",label:"Dark 300 s",count:2,gas:"None",t:300,laser:"Off"},
+   {key:"d1000",label:"Dark 1000 s",count:2,gas:"None",t:1000,laser:"Off"},{key:"d3000",label:"Dark 3000 s",count:1,gas:"None",t:3000,laser:"Off"}]},
+ {id:"M1b", name:"Laser warm-up", when:"Wed first thing; repeat midday after 2 h off",
+  purpose:"How long after switch-on until power and background settle. Every minute of warm-up comes out of each 30-minute run window.",
+  cond:"Ambient air at 60 psi. Reference half-wave plate angle.",
+  steps:["Tap Laser on (quick log) at switch-on.","Log the Ophir: Centauri logging on, or tap Ophir reading every 2 to 3 minutes.","Consecutive 60 s frames for 45 minutes."],
+  done:"Warm-up time stated for both starts: Ophir within 1 % of its final value AND quiet-window background per mW within 2 % of its final value.",
+  targets:[{key:"am",label:"Cold start, morning: 60 s frames",count:45,gas:"Ambient air",t:60,laser:"On"},
+   {key:"mid",label:"Restart after 2 h off: 60 s frames",count:45,gas:"Ambient air",t:60,laser:"On"}],
+  results:[{key:"warm_am",label:"Warm-up, morning start",unit:"min"},{key:"warm_mid",label:"Warm-up, midday restart",unit:"min"}], ophir:true},
+ {id:"M2", name:"Power ramp", when:"Wed morning",
+  purpose:"Find the highest laser power that is linear, stable and safe for a week. The most consequential measurement in the plan.",
+  cond:"Ambient air at 60 psi. Laser at fixed output; power set with the half-wave plate.",
+  steps:["Start near 70 mW on the Ophir; step up about ×1.5 with the half-wave plate. Stop at the lowest component limit or the Ophir rating.",
+         "At each step: 3 frames, frame time scaled so the N₂ peak stays near 30,000 counts.",
+         "After each step: return to the reference angle and log an Ophir reading (Ophir reading button).",
+         "At the highest passing step: hold 60 minutes, one frame every 5 minutes."],
+  criteria:["N₂ band area per mW·s within 2 % of the 70 mW value.","Quiet-window background per mW·s within 5 % of the 70 mW value.",
+            "Reference-state Ophir reading within 2 % of its pre-ramp value.","Hold: no trend above 2 %/h in background or N₂ area.",
+            "Hold: Ophir drift under 2 % at fixed angle; fiber enclosure within its 40 °C spec."],
+  done:"P_op stated (one step below the highest passing step), with passing data for every step.",
+  targets:[{key:"step",label:"Ramp: 3 frames per power step",count:null,gas:"Ambient air",t:"",laser:"On"},
+   {key:"hold",label:"Hold at top passing step",count:12,gas:"Ambient air",t:"",laser:"On"}],
+  results:[{key:"p_op",label:"P_op (Ophir)",unit:"mW"},{key:"ref_angle",label:"Reference half-wave plate angle",unit:"deg"}], ophir:true},
+ {id:"M3", name:"Saturation ceiling", when:"Wed, after M2",
+  purpose:"Longest frame time that keeps the brightest band at or below 75 % of the linear limit.",
+  cond:"P_op. House N₂ at 60 psi, then pure CO₂ at 60 psi if available.",
+  steps:["Frames at increasing integration time, starting at half the estimate (52,700 / P seconds, P in mW), until the brightest band reaches about 60,000 counts.",
+         "Enter the brightest-peak counts for every frame. The form flags 75 % and saturation.",
+         "Repeat with pure CO₂ if available."],
+  done:"t_f,max stated, the smaller of the two gases, with the counts-versus-time data.",
+  targets:[{key:"n2",label:"House N₂ series",count:null,gas:"House N2",t:"",laser:"On"},{key:"co2",label:"Pure CO₂ series (if available)",count:null,gas:"CO2",t:"",laser:"On"}],
+  results:[{key:"tf_max",label:"t_f,max",unit:"s"}]},
+ {id:"M4", name:"Noise vs time, Ar", when:"Wed afternoon",
+  purpose:"Photon transfer (conversion gain) and the integration-time curve without strong bands.",
+  cond:"Argon at 60 psi. P_op.",
+  steps:["Frame pairs at t_f,max/10, t_f,max/3 and t_f,max.","Twelve consecutive frames at t_f,max."],
+  done:"All frames saved, and the Ophir drift across the twelve frames is under 2 %.",
+  targets:[{key:"p10",label:"Pair at t_f,max/10",count:2,gas:"Argon",t:"tf/10",laser:"On"},{key:"p3",label:"Pair at t_f,max/3",count:2,gas:"Argon",t:"tf/3",laser:"On"},
+   {key:"p1",label:"Pair at t_f,max",count:2,gas:"Argon",t:"tf",laser:"On"},{key:"seq",label:"12 consecutive at t_f,max",count:12,gas:"Argon",t:"tf",laser:"On"}]},
+ {id:"M5", name:"Noise vs time, air", when:"Thu morning",
+  purpose:"The same integration-time curve with N₂ and O₂ on the array; cosmic-ray rate; ambient-air spectra in the deployed configuration.",
+  cond:"Ambient air at 60 psi. P_op.",
+  steps:["Twelve consecutive frames at t_f,max."],
+  done:"All frames saved, with the Ophir readings.",
+  targets:[{key:"seq",label:"12 consecutive at t_f,max",count:12,gas:"Ambient air",t:"tf",laser:"On"}]},
+ {id:"M6", name:"Rehearsal", when:"Thu afternoon, after the decision",
+  purpose:"One campaign day at real cadence and in real 30-minute windows, air standing in for headspace.",
+  cond:"Chosen P_op, t_f, M, M_Ar. Laser handled exactly as it will be in the campaign.",
+  steps:["Argon reference, purge.","Air acquisitions starting two hours apart, each followed by a purge.","Argon reference.","Enter the fill pressure at start and end of every acquisition."],
+  done:"The sequence completes inside the planned windows, pressure drift under 1 % over T, and the log is complete.",
+  targets:[{key:"ar_am",label:"Argon reference, start",count:"Mar",gas:"Argon",t:"tfd",laser:"On"},
+   {key:"air1",label:"Air run 1",count:"M",gas:"Ambient air",t:"tfd",laser:"On"},{key:"air2",label:"Air run 2",count:"M",gas:"Ambient air",t:"tfd",laser:"On"},
+   {key:"air3",label:"Air run 3 (if time)",count:"M",gas:"Ambient air",t:"tfd",laser:"On"},{key:"ar_pm",label:"Argon reference, end",count:"Mar",gas:"Argon",t:"tfd",laser:"On"}],
+  pressure:true},
+ {id:"CO2", name:"CO₂ factor (optional)", when:"Any time, if pure CO₂ is on hand",
+  purpose:"Response factor of CO₂ relative to N₂ from equal-pressure fills; about 2 % non-ideality correction for CO₂.",
+  cond:"P_op, 60 psi, consecutive fills.",
+  steps:["Pure CO₂ fill, M frames.","Pure N₂ fill, M frames.","Repeat the N₂ fill to confirm the coupling did not move."],
+  done:"Three fills logged with Ophir readings.",
+  targets:[{key:"co2",label:"Pure CO₂ fill",count:"M",gas:"CO2",t:"tfd",laser:"On"},{key:"n2a",label:"Pure N₂ fill",count:"M",gas:"House N2",t:"tfd",laser:"On"},{key:"n2b",label:"Pure N₂ repeat",count:"M",gas:"House N2",t:"tfd",laser:"On"}]}
+];
+const GASES=["Argon","House N2","Ambient air","CO2","None"];
+const LASER=["On","Off","Shutter closed"];
+const CFG_FLAGS=[["f_dark","Dark subtraction OFF"],["f_base","Baseline correction OFF"],["f_deconv","Deconvolution / processing OFF"],["f_int","Raman intensity correction OFF"],["f_avg","Scan averaging = 1"],["f_box","Boxcar = 1"]];
+const CFG_FIELDS=[
+ ["vb_start","Vertical binning, first row",""],["vb_end","Vertical binning, last row",""],["tec","TEC setpoint","°C"],["gain","Gain register",""],
+ ["offset","Offset register",""],["roi_start","Horizontal ROI start","px"],["roi_end","Horizontal ROI end","px"],["laser_out","Laser fixed output","W"],
+ ["t_purge","N₂ purge duration","min"],["t_fill","Fill duration","min"],["t_press","Pressurize duration","min"],["ophir_max","Ophir head rated maximum","mW"],
+ ["ref_angle","Reference half-wave plate angle","deg"],["ref_ophir","Ophir at reference state","mW"]];
+const RATINGS=[["r_hwp","Half-wave plate (at 5 W)"],["r_pol","Polarizer (at 5 W)"],["r_dump","Beam dump (at 5 W)"],["r_fiberin","Fiber input face / couplers"],["r_edge","45° edge filter 10CGA-610"],["r_notch","532 nm notch filter"]];
+const EV_LABEL={laser_on:"Laser on",laser_off:"Laser off",shutter_open:"Shutter open",shutter_closed:"Shutter closed",coupling:"Coupling adjusted",waveplate:"Half-wave plate changed",ophir:"Ophir reading",note:"Note",feedback:"App feedback"};
+const FULL=65535, WARN75=49000;
+
+/* ---------- State ---------- */
+const S={db:null,user:null,downloads:null,uid:null,frames:[],events:[],status:{},config:{},decision:{},pending:[],cur:"M0",tab:"meas",dbState:"connecting",readOnly:false,names:{}};
+try{S.pending=JSON.parse(localStorage.getItem("ntl_pending")||"[]")}catch(e){S.pending=[]}
+try{const c=localStorage.getItem("ntl_cur");if(c&&MEAS.some(m=>m.id===c))S.cur=c}catch(e){}
+
+const $=s=>document.querySelector(s);
+const esc=v=>String(v==null?"":v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const num=v=>{if(v===""||v==null)return null;const n=Number(String(v).replace(",","."));return isFinite(n)?n:null};
+const fmtT=iso=>{if(!iso)return"";const d=new Date(iso);if(isNaN(d))return esc(iso);return d.toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"})+" "+d.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})};
+const newId=p=>p+"-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,7);
+function savePending(){try{localStorage.setItem("ntl_pending",JSON.stringify(S.pending))}catch(e){}renderStatus()}
+
+/* ---------- Derived values ---------- */
+function tfMax(){return num((S.status.M3||{}).results?.tf_max)}
+function decTf(){return num(S.decision.tf)}
+function resolveT(t){
+  if(t==="tf")return tfMax()??"";
+  if(t==="tf/10"){const v=tfMax();return v==null?"":+(v/10).toFixed(2)}
+  if(t==="tf/3"){const v=tfMax();return v==null?"":+(v/3).toFixed(2)}
+  if(t==="tfd")return decTf()??"";
+  return t;
+}
+function resolveCount(c){
+  if(c==="M")return num(S.decision.M);
+  if(c==="Mar")return num(S.decision.M_Ar);
+  return c;
+}
+function framesFor(mid){return S.frames.filter(f=>f.mid===mid)}
+function measState(m){
+  const st=S.status[m.id]||{};
+  if(st.done)return"done";
+  if(framesFor(m.id).length||Object.values(st.steps||{}).some(Boolean))return"prog";
+  return"none";
+}
+function flagsFor(f){
+  const out=[];
+  const a=num(f.ophir_start_mW),b=num(f.ophir_end_mW);
+  if(a&&b){const d=Math.abs(b-a)/a*100;if(d>2)out.push(["warn","Ophir drift "+d.toFixed(1)+" %"])}
+  const pk=num(f.peak_counts);
+  if(pk!=null){if(pk>=65000)out.push(["bad","Saturated ("+pk+")"]);else if(pk>WARN75)out.push(["warn","Above 75 % of full scale"])}
+  const sp=num(S.config.tec),dt=num(f.detector_temp_C);
+  if(sp!=null&&dt!=null&&Math.abs(dt-sp)>0.5)out.push(["warn","Detector "+(dt-sp>0?"+":"")+(dt-sp).toFixed(1)+" °C from setpoint"]);
+  const p1=num(f.pressure_start_psig),p2=num(f.pressure_end_psig);
+  if(p1&&p2!=null){const d=Math.abs(p2-p1)/p1*100;if(d>1)out.push(["warn","Pressure drift "+d.toFixed(1)+" %"])}
+  const om=num(S.config.ophir_max);if(om&&a&&a>om)out.push(["bad","Ophir above its rating"]);
+  return out;
+}
+
+/* ---------- Writes ---------- */
+const chains={};
+function writeDoc(path,data){
+  if(!S.db)return Promise.reject({code:"unavailable"});
+  const prev=chains[path]||Promise.resolve();
+  const p=prev.catch(()=>{}).then(()=>S.db.doc(path).set(data));
+  chains[path]=p;return p;
+}
+async function saveRecord(coll,rec){
+  const id=rec.id;const body=Object.assign({},rec);delete body.id;
+  if(coll==="frames")S.frames=S.frames.filter(x=>x.id!==id).concat([rec]).sort(byTs);
+  else S.events=S.events.filter(x=>x.id!==id).concat([rec]).sort(byTs);
+  try{await writeDoc(coll+"/"+id,body);return"saved"}
+  catch(e){
+    if(e&&e.code==="invalid_argument"&&S.db){S.readOnly=true;renderStatus();return"refused"}
+    S.pending.push({coll,id,body});savePending();return"queued";
+  }
+}
+async function flushPending(){
+  if(!S.db||!S.pending.length)return;
+  const left=[];
+  for(const p of S.pending){try{await writeDoc(p.coll+"/"+p.id,p.body)}catch(e){left.push(p)}}
+  S.pending=left;savePending();
+}
+async function saveStatus(mid,patch){
+  const cur=Object.assign({},S.status[mid]||{});
+  const next=Object.assign(cur,patch,{updatedAt:new Date().toISOString(),by:S.uid||null});
+  S.status[mid]=next;renderRail();
+  try{await writeDoc("status/"+mid,next)}catch(e){S.pending.push({coll:"status",id:mid,body:next});savePending()}
+}
+let cfgTimer=null,decTimer=null;
+function saveConfigSoon(){clearTimeout(cfgTimer);cfgTimer=setTimeout(async()=>{const b=Object.assign({},S.config,{updatedAt:new Date().toISOString(),by:S.uid||null});try{await writeDoc("config/m0",b)}catch(e){S.pending.push({coll:"config",id:"m0",body:b});savePending()}},600)}
+function saveDecisionSoon(){clearTimeout(decTimer);decTimer=setTimeout(async()=>{const b=Object.assign({},S.decision,{updatedAt:new Date().toISOString(),by:S.uid||null});try{await writeDoc("decision/final",b)}catch(e){S.pending.push({coll:"decision",id:"final",body:b});savePending()}},600)}
+const byTs=(a,b)=>String(a.ts||"").localeCompare(String(b.ts||""));
+
+/* ---------- Header / rail ---------- */
+function renderStatus(){
+  const cp=$("#connPill"),ct=$("#connText");
+  cp.className="pill "+(S.dbState==="live"?(S.readOnly?"warn":"ok"):S.dbState==="offline"?"bad":"");
+  ct.textContent=S.dbState==="live"?(S.readOnly?"View only":"Shared, live"):S.dbState==="offline"?"Not connected":"Connecting";
+  $("#offlineBanner").hidden=S.dbState!=="offline";
+  const pp=$("#pendPill");pp.hidden=!S.pending.length;$("#pendText").textContent=S.pending.length+" waiting to upload";
+}
+function renderRail(){
+  const r=$("#rail");r.hidden=S.tab!=="meas";
+  r.innerHTML=MEAS.map(m=>{const st=measState(m);const lab=st==="done"?"Done":st==="prog"?"In progress":"Not started";
+    return `<button role="tab" data-m="${m.id}" aria-selected="${m.id===S.cur}"><span class="id">${m.id}</span><span class="nm">${esc(m.name)}</span><span class="st ${st}">${lab}</span></button>`}).join("");
+}
+function setTabs(){for(const t of["meas","decision","log"])$("#tab-"+t).setAttribute("aria-selected",String(S.tab===t))}
+
+/* ---------- Measurement view ---------- */
+function targetRows(m){
+  const fr=framesFor(m.id);
+  return m.targets.map(t=>{
+    const n=fr.filter(f=>f.plan===t.key).reduce((a,f)=>a+(num(f.nframes)||1),0);const c=resolveCount(t.count);
+    const pct=c?Math.min(100,n/c*100):(n?100:0);
+    return `<div class="target"><span>${esc(t.label)}${resolveT(t.t)!==""&&resolveT(t.t)!=null?` <span class="meta">· ${esc(resolveT(t.t))} s</span>`:""}</span><span class="n">${n}${c?" / "+c:""}</span><span class="bar"><i class="${c&&n>=c?"full":""}" style="width:${pct}%"></i></span></div>`}).join("");
+}
+function renderMeas(){
+  const m=MEAS.find(x=>x.id===S.cur);const st=S.status[m.id]||{};
+  const v=$("#view");
+  v.innerHTML=`<div class="panel">
+   <section class="card a-head"><h2>${m.id}. ${esc(m.name)}</h2><p class="meta">${esc(m.when)}</p>
+    <dl class="kv"><dt>Purpose</dt><dd>${esc(m.purpose)}</dd><dt>Conditions</dt><dd>${esc(m.cond)}</dd></dl></section>
+   <section class="card a-form" id="formCard"></section>
+   <section class="card a-plan">
+    <h3>Planned frames</h3><div class="targets" id="targets">${targetRows(m)}</div>
+    <h3>Steps</h3><ul class="checks">${m.steps.map((s,i)=>`<li><label><input type="checkbox" data-step="${i}" ${st.steps&&st.steps[i]?"checked":""}><span>${esc(s)}</span></label></li>`).join("")}</ul>
+    ${m.criteria?`<h3>Pass criteria, fixed in advance</h3><ul class="checks">${m.criteria.map((s,i)=>`<li><label><input type="checkbox" data-crit="${i}" ${st.crit&&st.crit[i]?"checked":""}><span>${esc(s)}</span></label></li>`).join("")}</ul>`:""}
+    ${m.results?`<h3>Results</h3><div class="cfg">${m.results.map(r=>`<div class="f"><label for="res-${r.key}">${esc(r.label)} <span class="u">${esc(r.unit)}</span></label><input class="num" inputmode="decimal" id="res-${r.key}" data-res="${r.key}" value="${esc((st.results||{})[r.key]??"")}"></div>`).join("")}</div>`:""}
+    ${m.id==="M0"?renderConfigForm():""}
+    <div class="doneblock"><h3>Done when</h3><p style="margin:0 0 8px">${esc(m.done)}</p>
+     <ul class="checks"><li><label><input type="checkbox" id="doneChk" ${st.done?"checked":""}><span><strong>Met</strong>: mark ${m.id} done</span></label></li></ul>
+     <div class="f" style="margin-top:8px"><label for="doneNote">Notes for André</label><textarea id="doneNote">${esc(st.note||"")}</textarea></div></div>
+   </section>
+   <section class="card a-entries"><h3>Frames logged for ${m.id}</h3><div id="entries"></div></section>
+  </div>`;
+  renderForm(m);renderEntries();
+}
+function renderConfigForm(){
+  const c=S.config;
+  return `<h3>Configuration record</h3><div class="cfg">
+   <div class="cfgflags"><ul class="checks">${CFG_FLAGS.map(([k,l])=>`<li><label><input type="checkbox" data-cfgc="${k}" ${c[k]?"checked":""}><span>${esc(l)} (confirmed in a saved header)</span></label></li>`).join("")}</ul></div>
+   ${CFG_FIELDS.map(([k,l,u])=>`<div class="f"><label for="cfg-${k}">${esc(l)} ${u?`<span class="u">${esc(u)}</span>`:""}</label><input class="num" inputmode="decimal" id="cfg-${k}" data-cfg="${k}" value="${esc(c[k]??"")}"></div>`).join("")}
+  </div>
+  <h3>Component ratings</h3><div class="cfg">${RATINGS.map(([k,l])=>`<div class="f" style="grid-column:span 2"><label for="cfg-${k}">${esc(l)}: rating vs expected maximum</label><input id="cfg-${k}" data-cfg="${k}" value="${esc(c[k]??"")}" placeholder="e.g. rated 10 W, sees 5 W"></div>`).join("")}</div>`;
+}
+
+/* ---------- Frame form ---------- */
+let lastVals={};
+try{lastVals=JSON.parse(localStorage.getItem("ntl_last")||"{}")}catch(e){lastVals={}}
+function couplingSinceLastFrame(){
+  const lf=S.frames.length?S.frames[S.frames.length-1].ts:"";
+  return S.events.some(e=>e.type==="coupling"&&String(e.ts)>String(lf));
+}
+function renderForm(m){
+  const fc=$("#formCard");
+  const lv=lastVals[m.id]||{};
+  const t0=m.targets[0];
+  const plan=lv.plan&&m.targets.some(t=>t.key===lv.plan)?lv.plan:t0.key;
+  const tg=m.targets.find(t=>t.key===plan);
+  const nextIdx=framesFor(m.id).filter(f=>f.plan===plan).reduce((a,f)=>a+(num(f.nframes)||1),0)+1;
+  const v=(k,d)=>esc(lv[k]??d??"");
+  fc.innerHTML=`<h3>Log an acquisition</h3><p class="hint" style="margin:0 0 10px">One entry per saved ENLIGHTEN file. A batch file holding several scans counts as that many frames. Spectra go to Box: <span style="font-family:var(--mono)">Experimental Raman Spectra Data Folder › 2026 Measurements › ${todayFolder()}</span></p>
+  <form class="grid" id="frameForm" autocomplete="off" novalidate>
+   <div class="f wide"><label for="ff-plan">Planned item</label><select id="ff-plan">${m.targets.map(t=>`<option value="${t.key}" ${t.key===plan?"selected":""}>${esc(t.label)}</option>`).join("")}</select></div>
+   <div class="f wide"><label for="ff-file">ENLIGHTEN file name</label><input id="ff-file" placeholder="Batch_…csv or enlighten-…csv" autocapitalize="off" spellcheck="false"><span class="hint">Suggested name: <span id="ff-sugg" style="font-family:var(--mono)"></span> <button type="button" class="btn small" id="ff-copy">Copy</button></span></div>
+   <div class="f"><label for="ff-gas">Gas</label><select id="ff-gas">${GASES.map(g=>`<option ${g===(lv.gas??tg.gas)?"selected":""}>${g}</option>`).join("")}</select></div>
+   <div class="f"><label for="ff-press">Pressure <span class="u">psig</span></label><input class="num" inputmode="decimal" id="ff-press" value="${v("pressure_psig",tg.gas==="None"?"":"60")}"></div>
+   <div class="f"><label for="ff-laser">Laser</label><select id="ff-laser">${LASER.map(g=>`<option ${g===(lv.laser??tg.laser)?"selected":""}>${g}</option>`).join("")}</select></div>
+   <div class="f"><label for="ff-t">Frame time <span class="u">s</span></label><input class="num" inputmode="decimal" id="ff-t" value="${esc(resolveT(tg.t)!==""?resolveT(tg.t):(lv.frame_time_s??""))}"></div>
+   <div class="f"><label for="ff-idx">First frame index</label><input class="num" inputmode="numeric" id="ff-idx" value="${nextIdx}"></div>
+   <div class="f"><label for="ff-nf">Frames in file</label><input class="num" inputmode="numeric" id="ff-nf" value="${v("nframes","1")}"></div>
+   <div class="f"><label for="ff-hwp">Half-wave plate <span class="u">deg</span></label><input class="num" inputmode="decimal" id="ff-hwp" value="${v("waveplate_angle_deg")}"></div>
+   <div class="f"><label for="ff-o1">Ophir start <span class="u">mW</span></label><input class="num" inputmode="decimal" id="ff-o1" value="${v("ophir_end_mW")}"></div>
+   <div class="f"><label for="ff-o2">Ophir end <span class="u">mW</span></label><input class="num" inputmode="decimal" id="ff-o2"></div>
+   <div class="f"><label for="ff-pk">Brightest peak <span class="u">counts</span></label><input class="num" inputmode="numeric" id="ff-pk" placeholder="optional"></div>
+   <div class="f"><label for="ff-dt">Detector <span class="u">°C</span></label><input class="num" inputmode="decimal" id="ff-dt" value="${v("detector_temp_C")}"></div>
+   <div class="f"><label for="ff-et">Enclosure <span class="u">°C</span></label><input class="num" inputmode="decimal" id="ff-et" value="${v("enclosure_temp_C")}"></div>
+   <div class="f"><label for="ff-ht">Hall <span class="u">°C</span></label><input class="num" inputmode="decimal" id="ff-ht" value="${v("hall_temp_C")}"></div>
+   ${m.pressure?`<div class="f"><label for="ff-p1">Fill pressure start <span class="u">psig</span></label><input class="num" inputmode="decimal" id="ff-p1"></div>
+   <div class="f"><label for="ff-p2">Fill pressure end <span class="u">psig</span></label><input class="num" inputmode="decimal" id="ff-p2"></div>`:""}
+   <div class="f wide"><label class="inline"><input type="checkbox" id="ff-coup" ${couplingSinceLastFrame()?"checked":""}> Coupling adjusted since the last frame</label></div>
+   <div class="f wide"><label class="inline"><input type="checkbox" id="ff-now" checked> Time stamp = now</label><input type="datetime-local" id="ff-ts" hidden></div>
+   <div class="f wide"><label for="ff-notes">Notes</label><textarea id="ff-notes" placeholder="anything unusual"></textarea></div>
+   <div class="flags" id="ff-flags" aria-live="polite"></div>
+   <div class="formfoot"><span class="toast" id="ff-toast" aria-live="polite"></span><button class="btn primary" type="submit">Save frame</button></div>
+  </form>
+  ${m.ophir?`<p class="hint">Ophir readings between frames: use <strong>Ophir reading</strong> in the quick log bar. They are time-stamped and appear in the full log.</p>`:""}`;
+  const form=$("#frameForm");
+  $("#ff-plan").addEventListener("change",e=>{
+    const t=m.targets.find(x=>x.key===e.target.value);
+    const rt=resolveT(t.t);if(rt!==""&&rt!=null)$("#ff-t").value=rt;
+    $("#ff-gas").value=t.gas;$("#ff-laser").value=t.laser;
+    if(t.gas==="None")$("#ff-press").value="";else if(!$("#ff-press").value)$("#ff-press").value="60";
+    $("#ff-idx").value=framesFor(m.id).filter(f=>f.plan===t.key).reduce((a,f)=>a+(num(f.nframes)||1),0)+1;suggest();liveFlags();
+  });
+  $("#ff-now").addEventListener("change",e=>{const ts=$("#ff-ts");ts.hidden=e.target.checked;if(!e.target.checked&&!ts.value){const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());ts.value=d.toISOString().slice(0,16)}});
+  form.addEventListener("input",()=>{liveFlags();suggest()});
+  $("#ff-copy").addEventListener("click",async()=>{const t=$("#ff-sugg").textContent;try{await navigator.clipboard.writeText(t);$("#ff-copy").textContent="Copied"}catch(e){const r=document.createRange();r.selectNodeContents($("#ff-sugg"));const sel=getSelection();sel.removeAllRanges();sel.addRange(r)}setTimeout(()=>{const b=$("#ff-copy");if(b)b.textContent="Copy"},1500)});
+  suggest();
+  form.addEventListener("submit",async e=>{
+    e.preventDefault();
+    const file=$("#ff-file").value.trim(),t=$("#ff-t").value.trim();
+    const toast=$("#ff-toast");
+    if(!file&&!$("#ff-notes").value.trim()){toast.style.color="var(--bad)";toast.textContent="Enter the file name (or a note saying why there is none).";$("#ff-file").focus();return}
+    if(!t){toast.style.color="var(--bad)";toast.textContent="Enter the frame time.";$("#ff-t").focus();return}
+    const rec=collect(m);
+    const res=await saveRecord("frames",rec);
+    lastVals[m.id]={nframes:rec.nframes,plan:rec.plan,gas:rec.gas,pressure_psig:rec.pressure_psig,laser:rec.laser,frame_time_s:rec.frame_time_s,waveplate_angle_deg:rec.waveplate_angle_deg,ophir_end_mW:rec.ophir_end_mW,detector_temp_C:rec.detector_temp_C,enclosure_temp_C:rec.enclosure_temp_C,hall_temp_C:rec.hall_temp_C};
+    try{localStorage.setItem("ntl_last",JSON.stringify(lastVals))}catch(e){}
+    toast.style.color=res==="saved"?"var(--ok)":res==="queued"?"var(--warn)":"var(--bad)";
+    const msg=res==="saved"?"Saved "+(num(rec.nframes)>1?rec.nframes+" frames from ":"")+(rec.file||"entry")+".":res==="queued"?"Saved on this device; will upload when connected.":"Not saved: this account can only view the log.";
+    renderMeas();renderRail();
+    const t2=$("#ff-toast");if(t2){t2.style.color=toast.style.color;t2.textContent=msg}
+  });
+  liveFlags();
+}
+function collect(m){
+  const g=id=>{const el=$(id);return el?el.value.trim():""};
+  const now=$("#ff-now").checked;let ts=new Date().toISOString();
+  if(!now&&$("#ff-ts").value){const d=new Date($("#ff-ts").value);if(!isNaN(d))ts=d.toISOString()}
+  const rec={id:newId("f"),mid:m.id,plan:g("#ff-plan"),file:g("#ff-file"),gas:g("#ff-gas"),pressure_psig:g("#ff-press"),laser:g("#ff-laser"),
+    frame_time_s:g("#ff-t"),frame_index:g("#ff-idx"),nframes:g("#ff-nf")||"1",waveplate_angle_deg:g("#ff-hwp"),ophir_start_mW:g("#ff-o1"),ophir_end_mW:g("#ff-o2"),
+    peak_counts:g("#ff-pk"),detector_temp_C:g("#ff-dt"),enclosure_temp_C:g("#ff-et"),hall_temp_C:g("#ff-ht"),
+    pressure_start_psig:g("#ff-p1"),pressure_end_psig:g("#ff-p2"),coupling_adjusted:$("#ff-coup").checked,notes:g("#ff-notes"),ts,by:S.uid||null};
+  rec.flags=flagsFor(rec).map(f=>f[1]);
+  return rec;
+}
+function todayFolder(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function suggest(){
+  const el=$("#ff-sugg");if(!el)return;
+  const clean=x=>String(x||"").replace(/[^A-Za-z0-9.]+/g,"");
+  const gas={"Argon":"Ar","House N2":"N2","Ambient air":"Air","CO2":"CO2","None":"Dark"}[$("#ff-gas").value]||"";
+  const p=$("#ff-press").value.trim(),t=$("#ff-t").value.trim(),nf=$("#ff-nf").value.trim(),hwp=$("#ff-hwp").value.trim();
+  const parts=[S.cur,clean($("#ff-plan").value),gas,p?clean(p)+"psi":"",t?clean(t)+"s":"",num(nf)>1?clean(nf)+"x":"",hwp?"hwp"+clean(hwp):""].filter(Boolean);
+  el.textContent=parts.join("_");
+}
+function liveFlags(){
+  const el=$("#ff-flags");if(!el)return;const m=MEAS.find(x=>x.id===S.cur);
+  const fl=flagsFor({ophir_start_mW:$("#ff-o1").value,ophir_end_mW:$("#ff-o2").value,peak_counts:$("#ff-pk").value,detector_temp_C:$("#ff-dt").value,
+    pressure_start_psig:$("#ff-p1")?.value,pressure_end_psig:$("#ff-p2")?.value});
+  el.innerHTML=fl.map(([k,t])=>`<span class="pill ${k}"><span class="dot"></span>${esc(t)}</span>`).join("");
+}
+
+/* ---------- Entries table ---------- */
+function frameTable(rows,showMid){
+  if(!rows.length)return `<div class="empty">No frames yet. Saved frames appear here.</div>`;
+  return `<div class="tablewrap"><table><thead><tr><th>Time</th>${showMid?"<th>Meas.</th>":""}<th>Item</th><th>#</th><th>File</th><th>Gas</th><th>psig</th><th>t (s)</th><th>HWP °</th><th>Ophir mW</th><th>Peak</th><th>Det °C</th><th>Flags</th><th>By</th><th>Notes</th></tr></thead><tbody>
+  ${rows.slice().reverse().map(f=>{const m=MEAS.find(x=>x.id===f.mid);const t=m&&m.targets.find(x=>x.key===f.plan);const fl=flagsFor(f);
+   return `<tr><td>${fmtT(f.ts)}</td>${showMid?`<td>${esc(f.mid)}</td>`:""}<td>${esc(t?t.label:f.plan)}</td><td class="num">${esc(f.frame_index)}${num(f.nframes)>1?" ×"+esc(f.nframes):""}</td><td>${esc(f.file)}</td><td>${esc(f.gas)}</td><td class="num">${esc(f.pressure_psig)}</td><td class="num">${esc(f.frame_time_s)}</td><td class="num">${esc(f.waveplate_angle_deg)}</td><td class="num">${esc(f.ophir_start_mW)}${f.ophir_end_mW!==""&&f.ophir_end_mW!=null?" → "+esc(f.ophir_end_mW):""}</td><td class="num">${esc(f.peak_counts)}</td><td class="num">${esc(f.detector_temp_C)}</td><td>${fl.map(([k,x])=>`<span class="pill ${k}">${esc(x)}</span>`).join(" ")}${f.coupling_adjusted?' <span class="pill">coupling adj.</span>':""}</td><td data-uid="${esc(f.by||"")}"></td><td class="note">${esc(f.notes)}</td></tr>`}).join("")}
+  </tbody></table></div>`;
+}
+function renderEntries(){const el=$("#entries");if(!el)return;el.innerHTML=frameTable(framesFor(S.cur),false);fillNames(el);const tg=$("#targets");const m=MEAS.find(x=>x.id===S.cur);if(tg)tg.innerHTML=targetRows(m)}
+async function fillNames(root){
+  const cells=[...root.querySelectorAll("[data-uid]")];const ids=[...new Set(cells.map(c=>c.dataset.uid).filter(Boolean))];
+  if(!ids.length||!S.user)return;let ps={};try{ps=await S.user.profiles(ids)}catch(e){}
+  for(const c of cells){const p=ps[c.dataset.uid];c.textContent=p?(p.name||"Someone"):""}
+}
+
+/* ---------- Log view ---------- */
+function renderLog(){
+  const v=$("#view");
+  v.innerHTML=`<div style="display:grid;gap:16px">
+  <section class="card"><div class="rowbtns" style="justify-content:space-between;align-items:center"><h2 style="margin:0">All frames <span class="meta">(${S.frames.length})</span></h2>
+   <div class="rowbtns"><button class="btn" id="expFrames">Export run_log.csv</button><button class="btn" id="expEvents">Export events.csv</button></div></div>
+   <div id="expOut"></div><div style="margin-top:12px">${frameTable(S.frames,true)}</div></section>
+  <section class="card"><h2>Events <span class="meta">(${S.events.length})</span></h2><div style="margin-top:8px">${eventTable()}</div></section></div>`;
+  fillNames(v);
+  $("#expFrames").addEventListener("click",()=>exportCsv("run_log.csv",framesCsv()));
+  $("#expEvents").addEventListener("click",()=>exportCsv("events.csv",eventsCsv()));
+}
+function eventTable(){
+  if(!S.events.length)return `<div class="empty">No events yet. Use the quick log bar for laser on/off, shutter, coupling adjustments, Ophir readings and notes.</div>`;
+  return `<div class="tablewrap"><table><thead><tr><th>Time</th><th>Event</th><th>Value</th><th>During</th><th>By</th><th>Notes</th></tr></thead><tbody>
+  ${S.events.slice().reverse().map(e=>`<tr><td>${fmtT(e.ts)}</td><td>${esc(EV_LABEL[e.type]||e.type)}</td><td class="num">${esc(e.value)}${e.type==="ophir"&&e.value!==""?" mW":e.type==="waveplate"&&e.value!==""?" °":""}</td><td>${esc(e.mid)}</td><td data-uid="${esc(e.by||"")}"></td><td class="note">${esc(e.notes)}</td></tr>`).join("")}</tbody></table></div>`;
+}
+const csvCell=v=>{const s=String(v==null?"":v);return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s};
+function framesCsv(){
+  const cols=["file","measurement","plan_item","gas","pressure_psig","laser_state","laser_fixed_output_W","waveplate_angle_deg","ophir_start_mW","ophir_end_mW","pressure_start_psig","pressure_end_psig","frame_time_s","frame_index","frames_in_file","peak_counts","detector_temp_C","enclosure_temp_C","hall_temp_C","timestamp","coupling_adjusted_since_last_frame","flags","notes"];
+  const rows=S.frames.map(f=>[f.file,f.mid,f.plan,f.gas,f.pressure_psig,f.laser,S.config.laser_out??"",f.waveplate_angle_deg,f.ophir_start_mW,f.ophir_end_mW,f.pressure_start_psig,f.pressure_end_psig,f.frame_time_s,f.frame_index,f.nframes||1,f.peak_counts,f.detector_temp_C,f.enclosure_temp_C,f.hall_temp_C,f.ts,f.coupling_adjusted?"y":"n",(flagsFor(f).map(x=>x[1])).join("; "),f.notes]);
+  return [cols].concat(rows).map(r=>r.map(csvCell).join(",")).join("\n")+"\n";
+}
+function eventsCsv(){const cols=["timestamp","event","value","measurement","notes"];return [cols].concat(S.events.map(e=>[e.ts,EV_LABEL[e.type]||e.type,e.value,e.mid,e.notes])).map(r=>r.map(csvCell).join(",")).join("\n")+"\n"}
+async function exportCsv(name,text){
+  const out=$("#expOut");
+  if(S.downloads){try{await S.downloads.save({filename:name,data:text});out.innerHTML="";return}catch(e){if(e&&e.code==="declined")return}}
+  out.innerHTML=`<p class="hint">Downloads are not available in this view. Copy the text below into a file named ${esc(name)}.</p><textarea class="copyarea" readonly>${esc(text)}</textarea>`;
+  const ta=out.querySelector("textarea");ta.focus();ta.select();
+}
+
+/* ---------- Decision view ---------- */
+function renderDecision(){
+  const d=S.decision;const v=$("#view");
+  const tf=num(d.tf),M=num(d.M),Mar=num(d.M_Ar);const T=tf&&M?tf*M:null;
+  const cfg=S.config;const over=(num(cfg.t_purge)||0)+(num(cfg.t_fill)||0)+(num(cfg.t_press)||0);
+  const warmMid=num((S.status.M1b||{}).results?.warm_mid);
+  const tmax=over?30-over-(warmMid||0):null;
+  const pick=(k,l,u,hint)=>`<div class="f"><label for="dec-${k}">${l} <span class="u">${u}</span></label><input class="num" inputmode="decimal" id="dec-${k}" data-dec="${k}" value="${esc(d[k]??"")}">${hint?`<span class="hint">${hint}</span>`:""}</div>`;
+  v.innerHTML=`<section class="card"><h2>Decision, Thursday 12:00</h2><p class="meta">Four numbers fixed for the whole campaign. André signs off.</p>
+   <div class="cfg" style="margin-top:12px">
+    ${pick("P_op","P_op, Ophir","mW",(S.status.M2||{}).results?.p_op?"M2 result: "+esc(S.status.M2.results.p_op)+" mW":"from M2")}
+    ${pick("tf","Frame time t_f","s",tfMax()!=null?"M3 t_f,max: "+tfMax()+" s":"from M3")}
+    ${pick("M","Frames per acquisition M","",tmax!=null&&tf?"fits window: M ≤ "+Math.floor(tmax*60/tf):"")}
+    ${pick("M_Ar","Argon frames M_Ar","",M?"≥ "+2*M+" (2M), ideally "+4*M+" (4M)":"≥ 2M")}
+   </div>
+   <dl class="kv" style="margin-top:14px">
+    <dt>Total time T = M · t_f</dt><dd>${T!=null?(T/60).toFixed(1)+" min ("+T+" s)":"enter t_f and M"}</dd>
+    <dt>Window budget</dt><dd>${over?`30 min − ${over} min (purge + fill + pressurize, M0)${warmMid!=null?` − ${warmMid} min warm-up (M1b)`:" − warm-up (M1b, not yet entered)"} = <strong>${tmax!=null?tmax.toFixed(1)+" min":"?"}</strong> for acquisition`:"enter purge, fill and pressurize durations in M0"}</dd>
+    ${T!=null&&tmax!=null?`<dt>Check</dt><dd>${T/60<=tmax?'<span class="pill ok">T fits the window</span>':'<span class="pill bad">T exceeds the window</span>'}</dd>`:""}
+    ${M&&Mar?`<dt>Argon noise added</dt><dd>about ${((Math.sqrt(1+M/Mar)-1)*100).toFixed(0)} % to each sample's random noise</dd>`:""}
+   </dl>
+   <div class="doneblock"><ul class="checks"><li><label><input type="checkbox" id="dec-sign" ${d.signed?"checked":""}><span><strong>André signs off</strong> P_op, t_f, M and M_Ar for the campaign</span></label></li></ul>
+   <div class="f" style="margin-top:8px"><label for="dec-note">Decision notes</label><textarea id="dec-note">${esc(d.note||"")}</textarea></div></div></section>`;
+}
+
+/* ---------- Quick events ---------- */
+function openEvent(type){
+  const box=$("#evDialog");box.hidden=false;
+  const needsVal=type==="ophir"||type==="waveplate";
+  box.className="dialog";
+  box.innerHTML=`${needsVal?`<div class="f" style="flex:0 1 160px"><label for="ev-val">${type==="ophir"?"Ophir reading <span class='u'>mW</span>":"New angle <span class='u'>deg</span>"}</label><input class="num" inputmode="decimal" id="ev-val"></div>`:""}
+   <div class="f"><label for="ev-note">${esc(EV_LABEL[type])}${needsVal?" · note (optional)":(type==="note"||type==="feedback")?"":" · note (optional)"}</label><input id="ev-note" placeholder="${type==="coupling"?"what was adjusted, Ophir before → after":type==="feedback"?"what was awkward, confusing or missing":""}"></div>
+   <div class="rowbtns"><button class="btn primary" id="ev-save">Log ${esc(EV_LABEL[type].toLowerCase())}</button><button class="btn" id="ev-cancel">Cancel</button></div>
+   <span class="toast" id="ev-toast"></span>`;
+  const f=$(needsVal?"#ev-val":"#ev-note");f&&f.focus();
+  $("#ev-cancel").onclick=()=>{box.hidden=true;box.innerHTML=""};
+  const save=async()=>{
+    const val=needsVal?$("#ev-val").value.trim():"";const note=$("#ev-note").value.trim();
+    if(needsVal&&!val){$("#ev-toast").style.color="var(--bad)";$("#ev-toast").textContent="Enter a value.";return}
+    if((type==="note"||type==="feedback")&&!note){$("#ev-toast").style.color="var(--bad)";$("#ev-toast").textContent="Write the note first.";return}
+    const res=await saveRecord("events",{id:newId("e"),type,value:val,notes:note,mid:S.tab==="meas"?S.cur:"",ts:new Date().toISOString(),by:S.uid||null});
+    box.hidden=true;box.innerHTML="";flash(EV_LABEL[type]+(res==="saved"?" logged":res==="queued"?" kept on this device":" not saved (view only)"));
+    rerender();
+  };
+  $("#ev-save").onclick=save;
+  box.querySelectorAll("input").forEach(i=>i.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();save()}}));
+}
+async function quickLog(type){
+  if(["laser_on","laser_off","shutter_open","shutter_closed"].includes(type)){
+    const res=await saveRecord("events",{id:newId("e"),type,value:"",notes:"",mid:S.tab==="meas"?S.cur:"",ts:new Date().toISOString(),by:S.uid||null});
+    flash(EV_LABEL[type]+(res==="saved"?" logged at "+new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}):res==="queued"?" kept on this device":" not saved (view only)"));rerender();return;
+  }
+  openEvent(type);
+}
+let flashT=null;
+function flash(msg){let q=$("#quickMsg");if(!q){q=document.createElement("span");q.id="quickMsg";q.className="toast";q.setAttribute("aria-live","polite");$("#quick").appendChild(q)}q.textContent=msg;clearTimeout(flashT);flashT=setTimeout(()=>{q.textContent=""},4000)}
+
+/* ---------- Routing / events ---------- */
+function rerender(){
+  setTabs();renderRail();renderStatus();
+  if(S.tab==="meas"){
+    if(!$("#frameForm")||$("#formCard")?.dataset.m!==S.cur){renderMeas();const fc=$("#formCard");if(fc)fc.dataset.m=S.cur}
+    else renderEntries();
+  } else if(S.tab==="log")renderLog();
+  else if(S.tab==="decision"){if(!document.activeElement||!document.activeElement.dataset||!document.activeElement.dataset.dec)renderDecision()}
+}
+document.addEventListener("click",e=>{
+  const r=e.target.closest("[data-m]");if(r){S.cur=r.dataset.m;try{localStorage.setItem("ntl_cur",S.cur)}catch(_){}renderMeas();const fc=$("#formCard");if(fc)fc.dataset.m=S.cur;renderRail();window.scrollTo({top:0});return}
+  const q=e.target.closest("[data-ev]");if(q){quickLog(q.dataset.ev);return}
+  if(e.target.id==="tab-meas"){S.tab="meas";renderMeas();$("#formCard").dataset.m=S.cur;setTabs();renderRail()}
+  if(e.target.id==="tab-log"){S.tab="log";setTabs();renderRail();renderLog()}
+  if(e.target.id==="tab-decision"){S.tab="decision";setTabs();renderRail();renderDecision()}
+});
+document.addEventListener("change",e=>{
+  const t=e.target;const mid=S.cur;
+  if(t.dataset.step!=null){const st=Object.assign({},(S.status[mid]||{}).steps||{});st[t.dataset.step]=t.checked;saveStatus(mid,{steps:st})}
+  else if(t.dataset.crit!=null){const st=Object.assign({},(S.status[mid]||{}).crit||{});st[t.dataset.crit]=t.checked;saveStatus(mid,{crit:st})}
+  else if(t.id==="doneChk")saveStatus(mid,{done:t.checked});
+  else if(t.id==="doneNote")saveStatus(mid,{note:t.value});
+  else if(t.dataset.res){const r=Object.assign({},(S.status[mid]||{}).results||{});r[t.dataset.res]=t.value.trim();saveStatus(mid,{results:r})}
+  else if(t.dataset.cfgc){S.config[t.dataset.cfgc]=t.checked;saveConfigSoon()}
+  else if(t.id==="dec-sign"){S.decision.signed=t.checked;S.decision.signedAt=t.checked?new Date().toISOString():"";saveDecisionSoon()}
+  else if(t.id==="dec-note"){S.decision.note=t.value;saveDecisionSoon()}
+  else if(t.dataset.dec){S.decision[t.dataset.dec]=t.value.trim();saveDecisionSoon();renderDecision()}
+});
+document.addEventListener("input",e=>{const t=e.target;if(t.dataset.cfg){S.config[t.dataset.cfg]=t.value.trim();saveConfigSoon()}});
+
+/* ---------- Boot ---------- */
+setTabs();renderRail();renderStatus();renderMeas();$("#formCard").dataset.m=S.cur;
+
+(async function connect(){
+  const cl=window.claude;
+  if(!cl||!cl.use){S.dbState="offline";renderStatus();return}
+  const [db,user,dl]=await Promise.all([cl.use("db"),cl.use("user"),cl.use("downloads")]);
+  S.downloads=dl;S.user=user;
+  if(user){try{S.uid=await user.id()}catch(e){}
+    try{const me=await user.me();const w=$("#whoPill");if(me&&me.name){w.hidden=false;w.textContent="Logging as "+me.name}}catch(e){}
+    try{const can=await user.can("data.write");if(can===false){S.readOnly=true}}catch(e){}}
+  if(!db){S.dbState="offline";renderStatus();return}
+  S.db=db;S.dbState="live";renderStatus();
+  const onErr=()=>{S.dbState="offline";renderStatus()};
+  db.collection("frames").orderBy("ts").limit(1000).onSnapshot(s=>{S.frames=mergePending("frames",s.docs.map(d=>Object.assign({id:d.id},d.data()))).sort(byTs);if(S.tab!=="decision")rerender();else renderRail()},onErr);
+  db.collection("events").orderBy("ts").limit(1000).onSnapshot(s=>{S.events=mergePending("events",s.docs.map(d=>Object.assign({id:d.id},d.data()))).sort(byTs);if(S.tab==="log")renderLog()},onErr);
+  db.collection("status").onSnapshot(s=>{const o={};s.docs.forEach(d=>o[d.id]=d.data());S.status=o;renderRail();
+    if(S.tab==="meas"&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest(".a-plan")))renderEntries()},onErr);
+  db.doc("config/m0").onSnapshot(s=>{if(s.exists){const a=document.activeElement;if(!(a&&a.dataset&&(a.dataset.cfg||a.dataset.cfgc))){S.config=Object.assign({},s.data());if(S.tab==="meas"&&S.cur==="M0"&&!(a&&a.closest&&a.closest("#frameForm"))){renderMeas();$("#formCard").dataset.m=S.cur}}}},onErr);
+  db.doc("decision/final").onSnapshot(s=>{if(s.exists){S.decision=Object.assign({},s.data());if(S.tab==="decision")rerender()}},onErr);
+  flushPending();
+})();
+function mergePending(coll,rows){const ids=new Set(rows.map(r=>r.id));return rows.concat(S.pending.filter(p=>p.coll===coll&&!ids.has(p.id)).map(p=>Object.assign({id:p.id},p.body)))}
+})();
+</script>

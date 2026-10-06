@@ -24,6 +24,7 @@ from scipy import sparse
 from scipy.optimize import curve_fit
 from scipy.sparse.linalg import spsolve
 
+_trapz = getattr(np, "trapezoid", None) or np.trapz
 LOCAL_TZ = ZoneInfo("America/Los_Angeles")   # instrument computer clock
 
 # Windows, cm-1. QUIET is the published TIM noise window; CH is the volatiles window.
@@ -269,7 +270,7 @@ def fit_band(s: Spectrum, win: tuple[float, float]) -> dict:
     v = s.valid()
     m = v & (s.wn >= win[0]) & (s.wn <= win[1])
     x, y = s.wn[m], s.y[m]
-    out = dict(amp=np.nan, center=np.nan, fwhm=np.nan, area=np.nan, peak=np.nan, ok=False)
+    out = dict(amp=np.nan, center=np.nan, fwhm=np.nan, area=np.nan, peak=np.nan, top=np.nan, ok=False)
     if len(x) < 6:
         return out
     out["peak"] = float(np.max(y))
@@ -280,7 +281,7 @@ def fit_band(s: Spectrum, win: tuple[float, float]) -> dict:
                          bounds=([0, win[0], 2.0, -np.inf, -np.inf], [np.inf, win[1], 40.0, np.inf, np.inf]))
         a, x0, sig = p[0], p[1], abs(p[2])
         out.update(amp=float(a), center=float(x0), fwhm=float(2.3548 * sig),
-                   area=float(a * sig * math.sqrt(2 * math.pi)), ok=True)
+                   area=float(a * sig * math.sqrt(2 * math.pi)), top=float(a + p[3]), ok=True)
     except (RuntimeError, ValueError):
         pass
     return out
@@ -309,3 +310,80 @@ def write_md_table(rows: list[dict], cols: list[str], fmt: dict | None = None) -
             cells.append(str(v))
         body += "| " + " | ".join(cells) + " |\n"
     return head + body
+
+
+# --------------------------------------------------------------------------
+# Additions for M1b to M6
+# --------------------------------------------------------------------------
+
+CO2_WIN = (1240.0, 1440.0)      # Fermi dyad plus hot bands, as in the TIM composition
+DRY_AIR_N2_O2 = 0.78084 / 0.20946   # 3.7279
+
+
+def integrate_band(s: Spectrum, win: tuple[float, float], edge: int = 3) -> float:
+    """Direct integral over a window above a straight line through its end points.
+    Used where a single Gaussian does not describe the band (CO2 manifold)."""
+    v = s.valid()
+    m = v & (s.wn >= win[0]) & (s.wn <= win[1])
+    x, y = s.wn[m], s.y[m]
+    if len(x) < 2 * edge + 2:
+        return float("nan")
+    xl, yl = np.mean(x[:edge]), np.mean(y[:edge])
+    xr, yr = np.mean(x[-edge:]), np.mean(y[-edge:])
+    base = yl + (yr - yl) * (x - xl) / (xr - xl)
+    return float(_trapz(y - base, x))
+
+
+def dark_level(dark: dict | None, t: float) -> float:
+    """Offset + dark signal per channel from the M1 dark model; 0 if no model."""
+    if not dark:
+        return 0.0
+    return dark["offset_counts"] + dark["dark_rate_counts_per_s"] * t
+
+
+def load_dark(path: str | None) -> dict | None:
+    if not path:
+        return None
+    p = Path(path)
+    return json.loads(p.read_text()) if p.exists() else None
+
+
+def by_entry(spectra: list[Spectrum], frames: list[dict], mid: str) -> list[tuple[Spectrum, dict]]:
+    """Spectra whose matched log entry belongs to measurement `mid`, in time order."""
+    m = match_log(spectra, frames)
+    out = [(s, m[s.path.name][0]) for s in spectra if (m[s.path.name][0] or {}).get("mid") == mid]
+    out.sort(key=lambda se: se[0].timestamp or datetime.min.replace(tzinfo=LOCAL_TZ))
+    return out
+
+
+def stack(spectra: list[Spectrum]) -> tuple[np.ndarray, np.ndarray]:
+    """Common valid pixels of several spectra: (wn, Y[k, pixel])."""
+    v = np.logical_and.reduce([s.valid() for s in spectra])
+    return spectra[0].wn[v], np.array([s.y[v] for s in spectra])
+
+
+def residual_of(wn: np.ndarray, y: np.ndarray) -> np.ndarray:
+    return y - als(y)
+
+
+def loglog_slope(x, y) -> float:
+    x, y = np.asarray(x, float), np.asarray(y, float)
+    ok = (x > 0) & (y > 0) & np.isfinite(x) & np.isfinite(y)
+    return float(np.polyfit(np.log10(x[ok]), np.log10(y[ok]), 1)[0]) if ok.sum() >= 2 else float("nan")
+
+
+def slope_reading(b: float) -> str:
+    """Plan, Section 5: slope of log sigma(mean of m frames) vs log total time."""
+    if not math.isfinite(b):
+        return "not determined"
+    if b < -0.6:
+        return "steeper than -0.5: read-noise limited at short times, or a processing artifact; check"
+    if b <= -0.35:
+        return "about -0.5: random-noise limited, averaging still pays"
+    return "flatter than -0.35: fixed-pattern or structure limited, more frames buy little"
+
+
+def save_md(path: Path, parts: list[str]) -> str:
+    text = "\n".join(parts) + "\n"
+    path.write_text(text)
+    return text
